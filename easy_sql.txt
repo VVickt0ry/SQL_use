@@ -1,55 +1,41 @@
 
 
-SELECT 字段列表
-FROM 表名
-WHERE 条件
-ORDER BY 排序字段 [ASC|DESC]
-LIMIT 条数限制
+表示后面接的东西
+SELECT 字段列表，FROM 表名，WHERE 条件，ORDER BY 排序字段 [ASC|DESC]，LIMIT 条数限制
+实际执行顺序FROM → WHERE → SELECT → ORDER BY → LIMIT
 
 
-实际执行顺序，数据库想的顺序
-FROM → WHERE → SELECT → ORDER BY → LIMIT
-
-
+1.
 SELECT *          选所有字段
-SELECT 字段1, 字段2  只选需要的字段
-字段可以起别名：SELECT name AS 姓名, age AS 年龄 FROM students
-
-WHERE 后面写过滤条件，只保留满足条件的行
+SELECT  字段1, 字段2  只选需要的字段
 ORDER BY 字段1 [ASC|DESC], 字段2 [ASC|DESC] ……
-ASC（默认）：升序
-DESC：降序
-
+ASC（默认）：升序    DESC：降序
 LIMIT 5           取前5条
 LIMIT 10, 20      从第11条开始，取20条，分页
 
 
----------------------------------------------------------------------------------------------------
-
-
--- 前10个价格最高商品
+例子：
+前10个价格最高商品
 SELECT 商品名, 价格 
 FROM 商品表 
 ORDER BY 价格 DESC 
 LIMIT 10;
 
--- 第3页，每页20条
+
 SELECT * FROM 订单 
 ORDER BY 下单时间 DESC 
-LIMIT 40, 20;   -- 偏移40，从第41条开始取20条
+LIMIT 40, 20;      偏移40，从第41条开始取20条
 
 -------------------------------------------------------------------------------------------------
 
-AND并且age > 18 AND gender = '男'
-OR或者age < 18 OR age > 60
-NOT取反NOT (age > 18)  等价于 age <= 18
+AND并且，OR或者，NOT取反
 
-
+1.
 AND比OR优先级高
 WHERE age > 18 OR gender = '女' AND city = '上海'
--- 实际等价于： age > 18 OR (gender = '女' AND city = '上海')
+实际等价于 age > 18 OR (gender = '女' AND city = '上海')
 
-想表达“(年龄>18 或 女性) 且在上海” → 必须加括号
+想表达(年龄>18或女性) 且在上海
 WHERE (age > 18 OR gender = '女') AND city = '上海'
 
 
@@ -79,7 +65,6 @@ LIKE '__'恰好两个字符的名字
 
 ---------------------------------------------------------------------------------------------------------------------------
 
-
 1. DISTINCT     统计有多少个不同的城市、省份     
 SELECT DISTINCT city FROM students   去重，只保留唯一值  
 
@@ -87,17 +72,34 @@ SELECT DISTINCT city FROM students   去重，只保留唯一值
 2. AS 别名      导出报表、写复杂查询时必用   
 SELECT name AS 姓名, score AS 分数    给字段/表达式起中文或更易读的名字    
 
-DISTINCT 作用于整行（SELECT 后面所有字段组合去重）
 
-如果只想对某个字段去重，通常配合 GROUP BY 或子查询
+DISTINCT作用于整行，是对其后面所有字段的组合去重
+如果只想对某个字段去重，通常配合GROUP BY或子查询
 
 
 ------------------------------------------------------------------------------------------------------------------------------
 
+基础聚合：COUNT / SUM/ AVG/ MAX/ MIN
+
+COUNT(*)   统计行数（包含NULL）    COUNT(*) AS 总人数       最常用，统计记录条数
+
+COUNT(字段)  统计该字段非NULL的个数   COUNT(email) AS 有邮箱的人数     忽略NULL
+
+SUM()   求和      SUM(price) AS 总销售额      只对数值有效，字符串/日期会报错或0
+
+AVG()   平均值     AVG(score) AS 平均分        NULL 被忽略
+
+MAX()   最大值     MAX(create_time) AS 最后注册时间    日期、数字、字符串都可比较
+
+MIN()   最小值     MIN(age) AS 最年轻年龄          同上
+
+直接 SELECT SUM(price), name FROM orders 会报错，原因是聚合函数和普通字段混用
+正确做法：要么只选聚合函数，要么配合 GROUP BY
+
+
+-------------------------------------------------------------------------------------------------------------------
 
 
 
-基础聚合：COUNT / SUM / AVG / MAX / MIN
 
-COUNT(*)   统计行数（包含NULL）    COUNT(*) AS 总人数     最常用，统计记录条数
 
