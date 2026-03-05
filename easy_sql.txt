@@ -99,6 +99,250 @@ MIN()   最小值     MIN(age) AS 最年轻年龄          同上
 
 -------------------------------------------------------------------------------------------------------------------
 
+WHERE：在分组之前过滤原始行
+HAVING：在分组 + 聚合计算完成之后过滤分组结果
+
+WHERE里不能用聚合函数
+
+
+HAVING 里能写什么？
+聚合函数：HAVING COUNT(*) > 5、HAVING AVG(salary) >= 8000
+分组字段本身：HAVING department = '销售'
+表达式：HAVING MAX(salary) - MIN(salary) > 5000
+
+
+WHERE 管“人”（原始行），HAVING 管“组”（分组后的统计结果）
+聚合函数出现在 HAVING / SELECT，不能出现在 WHERE
+想在分组前过滤 → 用 WHERE
+想根据统计结果过滤 → 用 HAVING
+
+
+
+
+--------------------------------------------------------------------------------------------------------------------
+
+阶段2
+核心目标
+从“单表玩得转” → “多表关联 + 条件逻辑 + 时间/字符串处理都能写”
+
+--------------------------------------------------------------------------------------------------------------------
+
+INNER JOIN / LEFT JOIN / RIGHT JOIN / FULL OUTER JOIN
+
+
+JOIN 是把两张或多张表根据某个关联条件横向拼接起来
+A JOIN B 中 A为左表，B为右表
+
+
+INNER JOIN（内连接）：只留有对应关系的记录
+比如只保留有订单的用户 + 有商品的订单
+大白话：只看成交过的事儿，没成交的都不显示
+
+
+LEFT JOIN（左连接）：以左边的表为主角，全留
+比如以用户表为左表，不管用户有没有下单，都保留所有用户
+大白话：看所有用户的购买情况，包括没买过东西的用户
+
+
+
+左连接
+SELECT A.用户ID, A.姓名, B.订单ID
+FROM 用户表 A
+LEFT JOIN 订单表 B ON A.用户ID = B.用户ID;
+
+
+
+
+
+
+
+
+
+RIGHT JOIN（右连接）：以右边的表为主角，全留
+左/右连接的核心：主角表的所有记录都保留，另一张表只匹配能对上的，对不上的补NULL
+右连接几乎没用，因为 A RIGHT JOIN B 等价于 B LEFT JOIN A
+
+
+FULL OUTER JOIN（全连接）：两张表的记录都留
+所有用户、所有商品都保留，没下单的用户、没被买的商品都显示，对应信息空着
+大白话：看所有用户+所有商品的关联情况，不管有没有成交
+
+
+
+表格名	里面的信息	缺点
+用户表	用户 ID、姓名、手机号	不知道这个用户买了啥
+订单表	订单 ID、用户 ID、商品 ID、下单时间	不知道这个订单是谁下的、买的啥
+商品表	商品 ID、商品名、价格	不知道这个商品被谁买了
+
+单独看每张表，信息都是残缺的：
+看订单表，只能看到 “订单 1001，用户 ID 001，商品 ID 201”，但你不知道 001 是谁，201 是啥商品；
+看用户表，只能看到 “用户 001 叫张三”，但不知道他买过啥。
+
+这时候「多表连接」就派上用场了 ——用 “共同线索” 把表拼起来：
+用「用户 ID」把「订单表」和「用户表」拼起来 → 知道 “订单 1001 是张三下的”；
+再用「商品 ID」把拼好的表和「商品表」拼起来 → 最终能看到 “张三（用户 001）在 2025-03-05 下单买了订单 1001，商品是保温杯（201），价格 99 元”。
+
+拼完后的表长这样：
+订单 ID	用户 ID	姓名	商品 ID	商品名	价格	下单时间
+1001	001	张三	201	保温杯	99	2025-03-05 10:00
+
+
+
+
+LEFT/RIGHT/FULL 的过滤条件尽量写在 ON 里
+WHERE 里的右表字段条件会“消灭”外连接的保留特性
+
+--------------------------------------------------------------------------------------------------------------------
+
+多表连接 + 表别名
+写法建议可读性第一
+
+每张表都起短而有意义的别名（u=users, o=orders, p=products）
+JOIN 顺序一般从“主表 → 维度表 → 事实表”或“数据量小 → 大”
+用缩进对齐 ON 子句
+
+
+
+（订单 + 用户 + 商品 + 商品分类）
+SELECT 
+    o.order_id,
+    u.name AS buyer,
+    p.product_name,
+    c.category_name,
+    o.amount
+FROM orders o
+INNER JOIN users       u  ON o.user_id    = u.id
+INNER JOIN order_items oi ON o.order_id   = oi.order_id
+INNER JOIN products    p  ON oi.product_id = p.id
+INNER JOIN categories  c  ON p.category_id = c.id
+WHERE o.order_date >= '2025-01-01';
+
+
+JOIN 时 ON 和 WHERE 的过滤时机区别
+
+
+ON    生成中间表（连接）时过滤    只影响右表匹配，不消灭左表记录      连接条件 + 右表的前置过滤
+
+WHERE     整个中间表生成完后再过滤       会把不满足条件的整行（包括左表）都干掉      最终结果的全局过滤
+外连接（LEFT/RIGHT/FULL）时，右表的限制条件尽量写 ON，否则很容易把外连接写成内连接
+
+
+--------------------------------------------------------------------------------------------------------------------
+
+
+UNION / UNION ALL
+
+UNION     → 自动去重 + 默认排序（性能差）
+UNION ALL → 不去重 + 不排序（性能好，推荐）
+
+使用场景
+
+历史表 + 当前表合并
+不同数据源的同结构数据垂直拼接
+A/B测试不同版本数据合并
+
+
+SELECT user_id, '2025' AS year, amount FROM orders_2025
+UNION ALL
+SELECT user_id, '2024' AS year, amount FROM orders_2024
+ORDER BY user_id;
+
+
+
+
+CASE WHEN / IF （条件逻辑转换神器）
+两种写法（推荐用搜索型 CASE WHEN，更灵活）
+
+-- 简单 CASE（等值判断）
+CASE status_code
+    WHEN 1 THEN '待支付'
+    WHEN 2 THEN '已支付'
+    WHEN 3 THEN '已发货'
+    ELSE '未知'
+END AS status_text
+
+-- 搜索 CASE（范围/复杂条件）
+CASE 
+    WHEN amount >= 1000             THEN '大客户'
+    WHEN amount >= 300 AND amount < 1000 THEN '中客户'
+    WHEN amount IS NULL             THEN '无消费'
+    ELSE '小客户'
+END AS customer_level
+MySQL 独有简写：IF(条件, 真值, 假值)
+
+
+--------------------------------------------------------------------------------------------------------------------
+
+日期函数（时间分析占比极高）
+常用函数（MySQL 为主，PG略有差异）
+
+
+
+需求    MySQL 写法        PostgreSQL 写法
+当前日期/时间  CURDATE() / NOW()      CURRENT_DATE / CURRENT_TIMESTAMP
+
+日期差（天）   DATEDIFF('2026-03-04', reg_date)      reg_date - '2026-03-04'::date
+
+加/减天    DATE_ADD(reg_date, INTERVAL 7 DAY)       reg_date + INTERVAL '7 days'
+
+截取年月    DATE_FORMAT(order_date, '%Y-%m')       TO_CHAR(order_date, 'YYYY-MM')
+
+周几（1=周一）    DAYOFWEEK(date)       EXTRACT(DOW FROM date) +1
+
+是否本月         DATE_FORMAT(date, '%Y-%m') = DATE_FORMAT(CURDATE(), '%Y-%m')         date_trunc('month', date) = date_trunc('month', now())
+
+
+--------------------------------------------------------------------------------------------------------------------
+
+字符串函数（清洗、拼接）
+
+功能       MySQL        PostgreSQL     场景
+拼接    CONCAT(str1, str2, …) 或str1     空    str2
+
+截取     SUBSTRING(str, start, len)     SUBSTRING(str FROM start FOR len)      手机号脱敏、身份证后4位
+
+替换       REPLACE(str, from, to)       REPLACE(str, from, to)      统一敏感词、替换分隔符
+
+去空格     TRIM(str) / LTRIM / RTRIM      TRIM(str)      清洗用户输入
+
+大小写转换     UPPER() / LOWER()      UPPER() / LOWER()     统一编码
+
+查找位置    LOCATE(substr, str)      POSITION(substr IN str)    判断是否包含某子串
+
+--------------------------------------------------------------------------------------------------------------------
+
+COALESCE / NULLIF（空值处理神器）
+
+COALESCE     返回第一个非NULL值     COALESCE(phone, '未填写')
+
+NULLIF       如果两值相等返回NULL，否则返回第一个     NULLIF(sales, 0) → 避免除0
+
+组合使用      防止除0 + 默认值      COALESCE(NULLIF(sales, 0), 1)
+
+
+（计算转化率，避免除0）
+SELECT 
+    shop_id,
+    order_cnt,
+    pv,
+    ROUND(order_cnt * 100.0 / NULLIF(pv, 0), 2) AS conversion_rate
+FROM shop_stats;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
